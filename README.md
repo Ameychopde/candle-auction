@@ -25,17 +25,17 @@ To run this project, you need to have the following installed:
    git clone https://github.com/your-username/candle-auction.git
    cd candle-auction
    ```
-2.Install the dependencies:
+2. Install the dependencies:
    ```bash
    npm install
    npm install -g truffle
    truffle init
    ```
-3.Compile and depoly the smart contract:
+3. Compile and depoly the smart contract:
    ```bash
     npx truffle compile
     npx truffle migrate --network development
    ```
-4.Update the contractAddress (will be present in terminal after depolying contract) and contractABI (a new file name CandleAuction.json will be created) in the index.html file with the deployed contract address and ABI .
+4. Update the contractAddress (will be present in terminal after depolying contract) and contractABI (a new file name CandleAuction.json will be created) in the index.html file with the deployed contract address and ABI .
 
-5.Start a local blockchain using Ganache (or use any Ethereum testnet).
+5. Start a local blockchain using Ganache (or use any Ethereum testnet).
