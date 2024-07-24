@@ -21,7 +21,6 @@ To run this project, you need to have the following installed:
 ## Installation
 
 1. Clone the repository:
-
    ```bash
    git clone https://github.com/your-username/candle-auction.git
    cd candle-auction
