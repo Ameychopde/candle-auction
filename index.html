@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Candle Auction</title>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.6.0/dist/web3.min.js"></script>
+</head>
+
+<body>
+    <h1>Candle Auction</h1>
+
+    <div>
+        <h2>Create Auction</h2>
+        <label for="duration">Duration (blocks):</label>
+        <input type="number" id="duration" />
+        <button onclick="createAuction()">Create Auction</button>
+        <div id="auctionIdDisplay"></div>
+        <div id="createAuctionError" style="color: red;"></div>
+    </div>
+
+    <div>
+        <h2>Place Bid</h2>
+        <label for="auctionIdBid">Auction ID:</label>
+        <input type="number" id="auctionIdBid" />
+        <label for="bidAmount">Bid Amount (ETH):</label>
+        <input type="number" id="bidAmount" />
+        <button onclick="placeBid()">Place Bid</button>
+        <div id="placeBidError" style="color: red;"></div>
+    </div>
+
+    <div>
+        <h2>End Auction</h2>
+        <label for="auctionIdEnd">Auction ID:</label>
+        <input type="number" id="auctionIdEnd" />
+        <button onclick="endAuction()">End Auction</button>
+        <div id="winnerDisplay"></div>
+        <div id="endAuctionError" style="color: red;"></div>
+    </div>
+
+    <div>
+        <h2>Check Auction Details</h2>
+        <label for="auctionIdDetails">Auction ID:</label>
+        <input type="number" id="auctionIdDetails" />
+        <button onclick="checkAuctionDetails()">Check Details</button>
+        <pre id="auctionDetails"></pre>
+        <div id="checkDetailsError" style="color: red;"></div>
+    </div>
+
+    <div>
+        <h2>Withdraw Bid</h2>
+        <label for="auctionIdWithdraw">Auction ID:</label>
+        <input type="number" id="auctionIdWithdraw" />
+        <button onclick="withdrawBid()">Withdraw Bid</button>
+        <div id="withdrawBidError" style="color: red;"></div>
+    </div>
+
+    <script>
+        let web3;
+        let contract;
+        const contractAddress = '0xd138D58379dd0871273e6e647ebC133E289e88d2'; // Replace with your contract address
+        const contractABI = [
+            // Add your ABI here
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "uint256",
+                        "name": "auctionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "auctioneer",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "endBlock",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "AuctionCreated",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "uint256",
+                        "name": "auctionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "winner",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "amount",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "AuctionEnded",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "uint256",
+                        "name": "auctionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "bidder",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "amount",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "BidPlaced",
+                "type": "event"
+            },
+            {
+                "inputs": [],
+                "name": "auctionCount",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function",
+                "constant": true
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "auctions",
+                "outputs": [
+                    {
+                        "internalType": "address payable",
+                        "name": "auctioneer",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "startBlock",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "endBlock",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "bool",
+                        "name": "ended",
+                        "type": "bool"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "highestBidder",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "highestBid",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function",
+                "constant": true
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    }
+                ],
+                "name": "bids",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function",
+                "constant": true
+            },
+            {
+                "inputs": [],
+                "name": "randomnessBlockInterval",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function",
+                "constant": true
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "duration",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "createAuction",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "auctionId",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "placeBid",
+                "outputs": [],
+                "stateMutability": "payable",
+                "type": "function",
+                "payable": true
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "auctionId",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "withdrawBid",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "auctionId",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "endAuction",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "auctionId",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "randomEndAuction",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            }
+        ];
+
+        window.onload = async () => {
+            if (window.ethereum) {
+                web3 = new Web3(window.ethereum);
+                try {
+                    await window.ethereum.request({ method: 'eth_requestAccounts' });
+                } catch (error) {
+                    console.error("User denied account access");
+                }
+            } else if (window.web3) {
+                web3 = new Web3(window.web3.currentProvider);
+            } else {
+                console.log('Non-Ethereum browser detected. You should consider trying MetaMask!');
+                return;
+            }
+
+            contract = new web3.eth.Contract(contractABI, contractAddress);
+        };
+
+        async function createAuction() {
+            const accounts = await web3.eth.getAccounts();
+            const duration = document.getElementById('duration').value;
+            try {
+                const receipt = await contract.methods.createAuction(duration).send({ from: accounts[0] });
+                const auctionId = receipt.events.AuctionCreated.returnValues.auctionId;
+                document.getElementById('auctionIdDisplay').innerText = `Auction created with ID: ${auctionId}`;
+                document.getElementById('createAuctionError').innerText = '';
+            } catch (error) {
+                console.error(error);
+                document.getElementById('createAuctionError').innerText = `Failed to create auction: ${error.message}`;
+            }
+        }
+
+        async function placeBid() {
+            const accounts = await web3.eth.getAccounts();
+            const auctionId = document.getElementById('auctionIdBid').value;
+            const bidAmount = web3.utils.toWei(document.getElementById('bidAmount').value, 'ether');
+            try {
+                await contract.methods.placeBid(auctionId).send({ from: accounts[0], value: bidAmount });
+                alert('Bid placed');
+                document.getElementById('placeBidError').innerText = '';
+            } catch (error) {
+                console.error(error);
+                if (error.message.includes('revert')) {
+                    document.getElementById('placeBidError').innerText = `Failed to place bid: ${error.message}`;
+                } else {
+                    document.getElementById('placeBidError').innerText = 'Failed to place bid: Unexpected error';
+                }
+            }
+        }
+
+        async function endAuction() {
+            const accounts = await web3.eth.getAccounts();
+            const auctionId = document.getElementById('auctionIdEnd').value;
+            try {
+                await contract.methods.endAuction(auctionId).send({ from: accounts[0] });
+
+                // Fetch the auction details after ending the auction
+                const auction = await contract.methods.auctions(auctionId).call();
+                const winner = auction.highestBidder;
+                const amount = web3.utils.fromWei(auction.highestBid, 'ether');
+                document.getElementById('winnerDisplay').innerText = `Auction ended. Winner: ${winner}, Amount: ${amount} ETH`;
+                document.getElementById('endAuctionError').innerText = '';
+            } catch (error) {
+                console.error(error);
+                document.getElementById('endAuctionError').innerText = `Failed to end auction: ${error.message}`;
+            }
+        }
+
+        async function checkAuctionDetails() {
+            const auctionId = document.getElementById('auctionIdDetails').value;
+            try {
+                const details = await contract.methods.auctions(auctionId).call();
+                document.getElementById('auctionDetails').innerText = JSON.stringify(details, null, 2);
+                document.getElementById('checkDetailsError').innerText = '';
+            } catch (error) {
+                console.error(error);
+                document.getElementById('checkDetailsError').innerText = `Failed to fetch auction details: ${error.message}`;
+            }
+        }
+
+        async function withdrawBid() {
+            const accounts = await web3.eth.getAccounts();
+            const auctionId = document.getElementById('auctionIdWithdraw').value;
+            try {
+                await contract.methods.withdrawBid(auctionId).send({ from: accounts[0] });
+                alert('Bid withdrawn');
+                document.getElementById('withdrawBidError').innerText = '';
+            } catch (error) {
+                console.error(error);
+                document.getElementById('withdrawBidError').innerText = `Failed to withdraw bid: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+
+</html>
